@@ -13,7 +13,10 @@ function App() {
     nivel: "",
     serie: "",
     anosServicio: "",
-    tipoPersonal: ""
+    tipoPersonal: "",
+    municipioTrabajoResidencia: "",
+    otroMunicipio: "",
+    sostenimiento: ""
   });
 
   const [credencialFile, setCredencialFile] = useState(null);
@@ -29,6 +32,18 @@ function App() {
     { id: 'otro', label: 'Otro' }
   ];
 
+  const municipioOpciones = [
+    { id: 'reside_labora_tecamac', label: 'Reside y labora como docente en el municipio de Tecámac' },
+    { id: 'reside_tecamac_labora_otro', label: 'Reside en el municipio de Tecámac pero labora como docente en otro municipio' },
+    { id: 'reside_otro_labora_tecamac', label: 'Reside en otro municipio pero labora como docente en el municipio de Tecámac' }
+  ];
+
+  const sostenimientoOpciones = [
+    { id: 'federal', label: 'Federal' },
+    { id: 'estatal', label: 'Estatal' },
+    { id: 'privado', label: 'Privado' }
+  ];
+
   const CURP_REGEX = /^[A-Z]{1}[AEIOUX]{1}[A-Z]{2}\d{2}(0[1-9]|1[0-2])(0[1-9]|[12]\d|3[01])[HM]{1}[A-Z]{2}[B-DF-HJ-NP-TV-Z]{3}[A-Z0-9]{1}\d{1}$/;
 
   const handleChange = (e) => {
@@ -40,9 +55,10 @@ function App() {
   };
 
   const handleRadioChange = (e) => {
+    const { name, value } = e.target;
     setFormData(prev => ({
       ...prev,
-      tipoPersonal: e.target.value
+      [name]: value
     }));
   };
 
@@ -68,7 +84,7 @@ function App() {
     const filePath = `credenciales/${fileName}`;
 
     const { data, error } = await supabase.storage
-      .from('credenciales') // Nombre de tu bucket en Supabase
+      .from('credenciales')
       .upload(filePath, credencialFile, {
         cacheControl: '3600',
         upsert: false,
@@ -94,30 +110,165 @@ function App() {
     return publicUrl;
   };
 
-  const generarPDF = (folio) => {
+    const generarPDF = async (folio) => {
+    const doc = new jsPDF({
+      orientation: 'portrait',
+      unit: 'mm',
+      format: 'a4'
+    });
+
+    // Margenes del documento
+    const margin = 15;
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const pageHeight = doc.internal.pageSize.getHeight();
+    
+    try {
+      // Cargar imagen de fondo
+      const imgData = await loadImage('/comprobante.jpg');
+      
+      // Agregar fondo con opacidad
+      doc.addImage(
+        imgData, 
+        'JPEG', 
+        0, 
+        0, 
+        pageWidth, 
+        pageHeight,
+        undefined,
+        'FAST',
+        0.5 // Opacidad (0.5 = 50%)
+      );
+      
+      // Fondo blanco semitransparente para mejorar legibilidad
+
+      // doc.setFillColor(255, 255, 255, 0.7);
+      // doc.rect(
+      //   margin, 
+      //   margin, 
+      //   pageWidth - margin * 2, 
+      //   pageHeight - margin * 2, 
+      //   'F'
+      // );
+
+      // Configuración de texto
+      doc.setTextColor(0, 0, 0); // Texto en negro
+      doc.setFont('helvetica', 'bold');
+      
+      // Encabezado
+      doc.setFontSize(18);
+      // doc.text("REGISTRO DE PROFESOR", pageWidth / 2, margin + 15, { align: 'center' });
+      
+      // Folio y fecha
+      doc.setFontSize(12);
+      
+      doc.text(`Fecha: ${new Date().toLocaleDateString()}`, pageWidth - margin - 5, margin + 25, { align: 'right' });
+      
+      // Línea divisoria
+      // doc.setDrawColor(150);
+      // doc.setLineWidth(0.5);
+      // doc.line(margin, margin + 30, pageWidth - margin, margin + 30);
+
+      // Contenido principal
+      let yPosition = margin + 40;
+      const lineHeight = 8;
+      
+      // Función para agregar texto con etiqueta
+      // const addField = ( value) => {
+      //   doc.setFontSize(12);
+      //   doc.setFont('helvetica', 'bold');
+      //   // doc.text(`${label}:`, margin + 5, yPosition);
+      //   doc.setFont('helvetica', 'normal');
+      //   doc.text(value || 'No especificado', margin + 40, yPosition);
+      //   yPosition += lineHeight;
+      // };
+      doc.setFontSize(12);
+      doc.setFont('helvetica', 'bold');
+      // Campos del formulario
+      doc.text(formData.nombre, margin + 30, 90);
+      // addField('CURP', formData.curp);
+      // addField('Años de servicio', formData.anosServicio);
+      // addField('Tipo de personal', formData.tipoPersonal);
+      
+      // Información de municipio
+      // let municipioInfo = "";
+      // switch(formData.municipioTrabajoResidencia) {
+      //   case 'reside_labora_tecamac':
+      //     municipioInfo = "Reside y labora en Tecámac";
+      //     break;
+      //   case 'reside_tecamac_labora_otro':
+      //     municipioInfo = `Reside en Tecámac pero labora en ${formData.otroMunicipio || 'otro municipio'}`;
+      //     break;
+      //   case 'reside_otro_labora_tecamac':
+      //     municipioInfo = `Reside en ${formData.otroMunicipio || 'otro municipio'} pero labora en Tecámac`;
+      //     break;
+      //   default:
+      //     municipioInfo = "No especificado";
+      // }
+      // addField('Ubicación', municipioInfo);
+      
+      doc.text(formData.plantel, margin + 30, 105);
+      // addField('Sostenimiento', formData.sostenimiento);
+      doc.text( formData.cct, margin + 150, 105);
+      doc.text(`${folio}`, margin + 25, margin + 106);
+      // addField('Nivel educativo', formData.nivel);
+      // doc.text(formData.acompanate || 'Ninguno');
+
+      // Agregar imagen de credencial si existe
+      if (formData.credencial_url) {
+        try {
+          const credencialImg = await loadImage(formData.credencial_url);
+          const imgWidth = 40;
+          const imgHeight = 30;
+          doc.addImage(
+            credencialImg, 
+            'JPEG', 
+            pageWidth - margin - imgWidth - 5, 
+            yPosition - 5, 
+            imgWidth, 
+            imgHeight
+          );
+          doc.setFontSize(10);
+          doc.text("Credencial adjunta:", pageWidth - margin - imgWidth - 5, yPosition - 10);
+          yPosition += imgHeight + 10;
+        } catch (error) {
+          console.error("Error al cargar imagen de credencial:", error);
+        }
+      }
+
+      // Pie de página
+      doc.setFontSize(10);
+      doc.setTextColor(100);
+      doc.text(
+        "Documento generado automáticamente - Sistema de Registro de Profesores", 
+        pageWidth / 2, 
+        pageHeight - margin + 10, 
+        { align: 'center' }
+      );
+
+      doc.save(`registro_${folio}.pdf`);
+    } catch (error) {
+      console.error("Error al generar PDF:", error);
+      // Generar PDF sin fondo si hay error
+      generarPDFBasico(folio);
+    }
+  };
+
+  // Versión básica sin fondo por si falla la carga de imagen
+  const generarPDFBasico = (folio) => {
     const doc = new jsPDF();
-    
-    doc.setFontSize(16);
-    doc.setTextColor(40);
-    doc.text("REGISTRO DE PROFESOR", 105, 20, null, null, 'center');
-    
-    doc.setFontSize(12);
-    doc.text(`Folio: ${folio}`, 15, 30);
-    doc.text(`Fecha: ${new Date().toLocaleDateString()}`, 150, 30);
-    
-    const yStart = 50;
-    const lineHeight = 8;
-    
-    doc.text(`Nombre: ${formData.nombre}`, 15, yStart);
-    doc.text(`CURP: ${formData.curp}`, 15, yStart + lineHeight);
-    doc.text(`Años de servicio: ${formData.anosServicio}`, 15, yStart + lineHeight*2);
-    doc.text(`Tipo de personal: ${formData.tipoPersonal}`, 15, yStart + lineHeight*3);
-    doc.text(`Plantel: ${formData.plantel}`, 15, yStart + lineHeight*4);
-    doc.text(`CCT: ${formData.cct}`, 15, yStart + lineHeight*5);
-    doc.text(`Nivel: ${formData.nivel}`, 15, yStart + lineHeight*6);
-    doc.text(`Acompañante: ${formData.acompanate || 'Ninguno'}`, 15, yStart + lineHeight*7);
-    
+    // ... (implementación básica sin fondo)
     doc.save(`registro_${folio}.pdf`);
+  };
+
+  // Función auxiliar para cargar imágenes
+  const loadImage = (url) => {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      img.crossOrigin = 'Anonymous';
+      img.onload = () => resolve(img);
+      img.onerror = (err) => reject(err);
+      img.src = url;
+    });
   };
 
   const handleSubmit = async (e) => {
@@ -130,6 +281,16 @@ function App() {
 
     if (!formData.tipoPersonal) {
       alert("Por favor seleccione un tipo de personal");
+      return;
+    }
+
+    if (!formData.municipioTrabajoResidencia) {
+      alert("Por favor seleccione una opción de residencia/laboral");
+      return;
+    }
+
+    if (!formData.sostenimiento) {
+      alert("Por favor seleccione el sostenimiento del plantel");
       return;
     }
 
@@ -151,6 +312,9 @@ function App() {
           serie: formData.serie,
           anos_servicio: formData.anosServicio,
           tipo_personal: formData.tipoPersonal,
+          municipio_trabajo_residencia: formData.municipioTrabajoResidencia,
+          otro_municipio: formData.otroMunicipio,
+          sostenimiento: formData.sostenimiento,
           credencial_url: credencialUrl
         })
         .select();
@@ -191,7 +355,10 @@ function App() {
           nivel: "",
           serie: "",
           anosServicio: "",
-          tipoPersonal: ""
+          tipoPersonal: "",
+          municipioTrabajoResidencia: "",
+          otroMunicipio: "",
+          sostenimiento: ""
         });
         setCredencialFile(null);
         setPreviewUrl("");
@@ -284,7 +451,7 @@ function App() {
                       className="h-4 w-4 text-rose-600 focus:ring-rose-600"
                     />
                     <label htmlFor={tipo.id} className="ml-2 text-sm text-slate-200">
-                      {tipo.label}
+                      {tipo.label.toLocaleUpperCase()}
                     </label>
                   </div>
                 ))}
@@ -292,38 +459,49 @@ function App() {
             </div>
 
             <div className="sm:col-span-2">
-              <label htmlFor="credencial" className="block text-sm/6 font-semibold text-slate-200">
-                CREDENCIAL (IMAGEN):
+              <label className="block text-sm/6 font-semibold text-slate-200 mb-2">
+                RESIDENCIA Y LUGAR DE TRABAJO:
               </label>
-              <div className="mt-2.5">
-                <input
-                  type="file"
-                  id="credencial"
-                  name="credencial"
-                  accept="image/*"
-                  onChange={handleFileChange}
-                  ref={fileInputRef}
-                  className="block w-full text-sm text-gray-900 bg-white rounded-md border border-gray-300 cursor-pointer focus:outline-none"
-                />
-                {uploadProgress > 0 && uploadProgress < 100 && (
-                  <div className="w-full bg-gray-200 rounded-full h-2.5 mt-2">
-                    <div 
-                      className="bg-rose-600 h-2.5 rounded-full" 
-                      style={{ width: `${uploadProgress}%` }}
-                    ></div>
+              <div className="space-y-2">
+                {municipioOpciones.map((opcion) => (
+                  <div key={opcion.id} className="flex items-start">
+                    <div className="flex items-center h-5">
+                      <input
+                        type="radio"
+                        id={opcion.id}
+                        name="municipioTrabajoResidencia"
+                        value={opcion.id}
+                        checked={formData.municipioTrabajoResidencia === opcion.id}
+                        onChange={handleRadioChange}
+                        className="h-4 w-4 text-rose-600 focus:ring-rose-600"
+                      />
+                    </div>
+                    <div className="ml-3 text-sm">
+                      <label htmlFor={opcion.id} className="text-sm/6 text-slate-200">
+                        {opcion.label.toLocaleUpperCase()}
+                      </label>
+                    </div>
                   </div>
-                )}
-                {previewUrl && (
-                  <div className="mt-2">
-                    <img 
-                      src={previewUrl} 
-                      alt="Vista previa de credencial" 
-                      className="h-32 object-contain border rounded"
-                    />
-                    <p className="text-xs text-slate-200 mt-1">Vista previa</p>
-                  </div>
-                )}
+                ))}
               </div>
+              
+              {(formData.municipioTrabajoResidencia === 'reside_tecamac_labora_otro' || 
+                formData.municipioTrabajoResidencia === 'reside_otro_labora_tecamac') && (
+                <div className="mt-2">
+                  <label htmlFor="otroMunicipio" className="block text-sm/6 font-semibold text-slate-200">
+                    ESPECIFIQUE EL OTRO MUNICIPIO:
+                  </label>
+                  <input
+                    type="text"
+                    id="otroMunicipio"
+                    name="otroMunicipio"
+                    value={formData.otroMunicipio.toLocaleUpperCase()}
+                    onChange={handleChange}
+                    placeholder="Nombre del municipio"
+                    className="mt-1 block w-full rounded-md bg-white px-3.5 py-2 text-base text-gray-900 outline-1 -outline-offset-1 outline-gray-300 placeholder:text-gray-400 focus:outline-2 focus:-outline-offset-2 focus:outline-purple-600"
+                  />
+                </div>
+              )}
             </div>
 
             <div className="sm:col-span-2">
@@ -345,19 +523,66 @@ function App() {
             </div>
 
             <div className="sm:col-span-2">
-              <label htmlFor="acompanate" className="block text-sm/6 font-semibold text-slate-200">
-                ACOMPAÑANTE:
+              <label className="block text-sm/6 font-semibold text-slate-200 mb-2">
+                SOSTENIMIENTO DEL PLANTEL:
+              </label>
+              <div className="space-y-2">
+                {sostenimientoOpciones.map((opcion) => (
+                  <div key={opcion.id} className="flex items-start">
+                    <div className="flex items-center h-5">
+                      <input
+                        type="radio"
+                        id={opcion.id}
+                        name="sostenimiento"
+                        value={opcion.id}
+                        checked={formData.sostenimiento === opcion.id}
+                        onChange={handleRadioChange}
+                        className="h-4 w-4 text-rose-600 focus:ring-rose-600"
+                      />
+                    </div>
+                    <div className="ml-3 text-sm">
+                      <label htmlFor={opcion.id} className="text-slate-200">
+                        {opcion.label.toLocaleUpperCase()}
+                      </label>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="sm:col-span-2">
+              <label htmlFor="credencial" className="block text-sm/6 font-semibold text-slate-200">
+                CREDENCIAL (IMAGEN):
               </label>
               <div className="mt-2.5">
                 <input
-                  type="text"
-                  id="acompanate"
-                  name="acompanate"
-                  placeholder="NOMBRE DEL ACOMPAÑANTE (OPCIONAL)"
-                  value={formData.acompanate}
-                  onChange={handleChange}
-                  className="block w-full rounded-md bg-white px-3.5 py-2 text-base text-gray-900 outline-1 -outline-offset-1 outline-gray-300 placeholder:text-gray-400 focus:outline-2 focus:-outline-offset-2 focus:outline-purple-600"
+                  type="file"
+                  id="credencial"
+                  name="credencial"
+                  accept="image/*"
+                  onChange={handleFileChange}
+                  ref={fileInputRef}
+                  className="block w-full text-sm text-gray-900 bg-white rounded-md border border-gray-300 cursor-pointer focus:outline-none"
+                  required
                 />
+                {uploadProgress > 0 && uploadProgress < 100 && (
+                  <div className="w-full bg-gray-200 rounded-full h-2.5 mt-2">
+                    <div 
+                      className="bg-rose-600 h-2.5 rounded-full" 
+                      style={{ width: `${uploadProgress}%` }}
+                    ></div>
+                  </div>
+                )}
+                {previewUrl && (
+                  <div className="mt-2">
+                    <img 
+                      src={previewUrl} 
+                      alt="Vista previa de credencial" 
+                      className="h-32 object-contain border rounded"
+                    />
+                    <p className="text-xs text-slate-200 mt-1">Vista previa</p>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -393,12 +618,30 @@ function App() {
                   required
                 >
                   <option value="">SELECCIONE UN NIVEL</option>
+                  <option value="ESTANCIA">ESTANCIA</option>
                   <option value="KINDER">KINDER</option>
                   <option value="PRIMARIA">PRIMARIA</option>
                   <option value="SECUNDARIA">SECUNDARIA</option>
                   <option value="PREPARATORIA">PREPARATORIA</option>
                   <option value="UNIVERSIDAD">UNIVERSIDAD</option>
                 </select>
+              </div>
+            </div>
+
+            <div className="sm:col-span-2">
+              <label htmlFor="acompanate" className="block text-sm/6 font-semibold text-slate-200">
+                ACOMPAÑANTE:
+              </label>
+              <div className="mt-2.5">
+                <input
+                  type="text"
+                  id="acompanate"
+                  name="acompanate"
+                  placeholder="NOMBRE DEL ACOMPAÑANTE (OPCIONAL)"
+                  value={formData.acompanate}
+                  onChange={handleChange}
+                  className="block w-full rounded-md bg-white px-3.5 py-2 text-base text-gray-900 outline-1 -outline-offset-1 outline-gray-300 placeholder:text-gray-400 focus:outline-2 focus:-outline-offset-2 focus:outline-purple-600"
+                />
               </div>
             </div>
           </div>

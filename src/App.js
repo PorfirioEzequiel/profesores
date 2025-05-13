@@ -1,6 +1,7 @@
 import React, { useState, useRef } from 'react';
 import supabase from './servicios/client';
 import jsPDF from 'jspdf';
+import QRCode from 'qrcode';
 
 function App() {
   // Form state
@@ -214,26 +215,53 @@ function App() {
       // doc.text(formData.acompanate || 'Ninguno');
 
       // Agregar imagen de credencial si existe
-      if (formData.credencial_url) {
-        try {
-          const credencialImg = await loadImage(formData.credencial_url);
-          const imgWidth = 40;
-          const imgHeight = 30;
-          doc.addImage(
-            credencialImg, 
-            'JPEG', 
-            pageWidth - margin - imgWidth - 5, 
-            yPosition - 5, 
-            imgWidth, 
-            imgHeight
-          );
-          doc.setFontSize(10);
-          doc.text("Credencial adjunta:", pageWidth - margin - imgWidth - 5, yPosition - 10);
-          yPosition += imgHeight + 10;
-        } catch (error) {
-          console.error("Error al cargar imagen de credencial:", error);
+      // if (formData.credencial_url) {
+      //   try {
+      //     const credencialImg = await loadImage(formData.credencial_url);
+      //     const imgWidth = 40;
+      //     const imgHeight = 30;
+      //     doc.addImage(
+      //       credencialImg, 
+      //       'JPEG', 
+      //       pageWidth - margin - imgWidth - 5, 
+      //       yPosition - 5, 
+      //       imgWidth, 
+      //       imgHeight
+      //     );
+      //     doc.setFontSize(10);
+      //     doc.text("Credencial adjunta:", pageWidth - margin - imgWidth - 5, yPosition - 10);
+      //     yPosition += imgHeight + 10;
+      //   } catch (error) {
+      //     console.error("Error al cargar imagen de credencial:", error);
+      //   }
+      // }
+
+      let qrDataURL;
+    try {
+      qrDataURL = await QRCode.toDataURL(formData.curp, {
+        width: 150,
+        margin: 1,
+        color: {
+          dark: '#000000', // Puntos negros
+          light: '#ffffff' // Fondo transparente
         }
-      }
+      });
+      
+      // Agregar QR al documento (esquina superior derecha)
+      const qrSize = 50; // Tamaño en mm
+      doc.addImage(
+        qrDataURL, 
+        'PNG', 
+        pageWidth - margin - qrSize - 3, 
+        margin + 100, 
+        qrSize, 
+        qrSize
+      );
+      doc.setFontSize(8);
+      // doc.text("CURP codificado", pageWidth - margin - qrSize/2 - 5, margin + 35 + qrSize + 5, { align: 'center' });
+    } catch (qrError) {
+      console.error("Error al generar QR:", qrError);
+    }
 
       // Pie de página
       doc.setFontSize(10);
